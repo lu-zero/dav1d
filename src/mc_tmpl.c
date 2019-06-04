@@ -948,6 +948,8 @@ COLD void bitfn(dav1d_mc_dsp_init)(Dav1dMCDSPContext *const c) {
 #if HAVE_ASM
 #if ARCH_AARCH64 || ARCH_ARM
     bitfn(dav1d_mc_dsp_init_arm)(c);
+#elif ARCH_PPC64LE
+    bitfn(dav1d_mc_dsp_init_ppc)(c);
 #elif ARCH_X86
     bitfn(dav1d_mc_dsp_init_x86)(c);
 #endif
