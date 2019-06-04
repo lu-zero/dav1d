@@ -152,6 +152,9 @@ if is_asm_enabled
         libdav1d_sources += files(
             'ppc/cpu.c',
         )
+        libdav1d_tmpl_sources += files(
+            'ppc/cdef_init_tmpl.c',
+        )
     endif
 endif
 
