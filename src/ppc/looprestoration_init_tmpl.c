@@ -33,8 +33,7 @@
 #include "src/cpu.h"
 #include "src/looprestoration.h"
 
-
-#if BITDEPTH == 8 && ARCH_PPC64LE
+#if BITDEPTH == 8
 
 #define REST_UNIT_STRIDE (390)
 
@@ -44,11 +43,10 @@ static inline i32x4 iclip_vec(i32x4 v, const i32x4 minv, const i32x4 maxv) {
     return v;
 }
 
-static inline  void wiener_filter_h_w256_h64_vsx(
-        uint16_t *hor_ptr,  uint8_t *tmp_ptr,
-        const int16_t filterh[7]
-        ){
-
+static inline void wiener_filter_h_w256_h64_vsx(uint16_t *hor_ptr,
+                                                uint8_t *tmp_ptr,
+                                                const int16_t filterh[7])
+{
     static const i32x4 zerov = vec_splats( 0 );
     static const i32x4 seven_vec = vec_splats(7);
     static const i32x4 bitdepth_added_vec = vec_splats(1 <<14);
@@ -135,12 +133,11 @@ static inline i32x4 iclip_u8_vec(i32x4 v) {
     return iclip_vec(v,zerov,maxv);
 }
 
-static  inline  void wiener_filter_v_w256_h64_vsx(
-        uint8_t *p,
-        const ptrdiff_t p_stride, const uint16_t *hor,
-        const int16_t filterv[7]
-        ){
-
+static inline void wiener_filter_v_w256_h64_vsx(uint8_t *p,
+                                                const ptrdiff_t p_stride,
+                                                const uint16_t *hor,
+                                                const int16_t filterv[7])
+{
     static const i32x4 round_bits_vec = vec_splats(11);
     static const i32x4 rounding_off_vec = vec_splats(1<<10);
     static const i32x4 round_offset_vec = vec_splats(1<<18);
@@ -216,19 +213,19 @@ static  inline  void wiener_filter_v_w256_h64_vsx(
     }
 }
 
-
-#define COPY_VEC(d, s, l)   \
-for (int i=0; i<l; i+=16)   \
+#define COPY_VEC(d, s, l) \
+for (int i=0; i<l; i+=16) \
   vec_vsx_st( vec_vsx_ld( 0, ((uint8_t *)(s)) +i ), 0, ((uint8_t*)(d)) +i) ;
 
-#define COPY_PADDING(d, s, w)   \
-    COPY_VEC(d, s, w);  \
+#define COPY_PADDING(d, s, w) \
+    COPY_VEC(d, s, w);\
     pixel_copy(d + 256 , s + 256, w - 256);
 
-static inline void padding_vsx(uint8_t *dst, const uint8_t *p, const ptrdiff_t p_stride,
-                    const uint8_t (*left)[4],
-                    const uint8_t *lpf, const ptrdiff_t lpf_stride,
-                     const enum LrEdgeFlags edges)
+static inline void padding_vsx(uint8_t *dst, const uint8_t *p,
+                               const ptrdiff_t p_stride,
+                               const uint8_t (*left)[4],
+                               const uint8_t *lpf, const ptrdiff_t lpf_stride,
+                               const enum LrEdgeFlags edges)
 {
     const int have_left = !!(edges & LR_HAVE_LEFT);
     const int have_right = !!(edges & LR_HAVE_RIGHT);
@@ -319,11 +316,11 @@ static inline void padding_vsx(uint8_t *dst, const uint8_t *p, const ptrdiff_t p
     }
 }
 
-// C Versions
-static inline void padding(uint8_t *dst, const uint8_t *p, const ptrdiff_t p_stride,
-                    const uint8_t (*left)[4],
-                    const uint8_t *lpf, const ptrdiff_t lpf_stride,
-                    int unit_w, const int stripe_h, const enum LrEdgeFlags edges)
+static inline void padding(uint8_t *dst, const uint8_t *p,
+                           const ptrdiff_t p_stride, const uint8_t (*left)[4],
+                           const uint8_t *lpf, const ptrdiff_t lpf_stride,
+                           int unit_w, const int stripe_h,
+                           const enum LrEdgeFlags edges)
 {
     const int have_left = !!(edges & LR_HAVE_LEFT);
     const int have_right = !!(edges & LR_HAVE_RIGHT);
@@ -408,13 +405,10 @@ static inline void padding(uint8_t *dst, const uint8_t *p, const ptrdiff_t p_str
     }
 }
 
-
-static inline  void wiener_filter_h(
-        uint16_t *hor_ptr,  uint8_t *tmp_ptr,
-        const int16_t filterh[7],
-        const int w, const int h
-        ){
-
+static inline void wiener_filter_h(uint16_t *hor_ptr, uint8_t *tmp_ptr,
+                                   const int16_t filterh[7], const int w,
+                                   const int h)
+{
     const int bitdepth = 8;
     const int round_bits_h = 3 + (bitdepth == 12) * 2;
     const int rounding_off_h = 1 << (round_bits_h - 1);
@@ -435,15 +429,11 @@ static inline  void wiener_filter_h(
     }
 }
 
-
-
-static inline void wiener_filter_v(
-        uint8_t *p,
-        const ptrdiff_t p_stride, const uint16_t *hor,
-        const int16_t filterv[7],
-        const int w, const int h
-        ){
-
+static inline void wiener_filter_v(uint8_t *p, const ptrdiff_t p_stride,
+                                   const uint16_t *hor,
+                                   const int16_t filterv[7],
+                                   const int w, const int h)
+{
     const int bitdepth = 8;
     const int round_bits_v = 11 - (bitdepth == 12) * 2;
     const int rounding_off_v = 1 << (round_bits_v - 1);
@@ -466,15 +456,15 @@ static inline void wiener_filter_v(
 // (since first and last tops are always 0 for chroma)
 // FIXME Could implement a version that requires less temporary memory
 // (should be possible to implement with only 6 rows of temp storage)
-static inline void wiener_filter_vsx(uint8_t *p, const ptrdiff_t p_stride,
-                     const uint8_t (*const left)[4],
-                     const uint8_t *lpf, const ptrdiff_t lpf_stride,
-                     const int w, const int h,
-                     const int16_t filterh[7], const int16_t filterv[7],
-                     const enum LrEdgeFlags edges HIGHBD_DECL_SUFFIX)
+static void wiener_filter_vsx(uint8_t *p, const ptrdiff_t p_stride,
+                              const uint8_t (*const left)[4],
+                              const uint8_t *lpf,
+                              const ptrdiff_t lpf_stride,
+                              const int w, const int h,
+                              const int16_t filterh[7],
+                              const int16_t filterv[7],
+                              const enum LrEdgeFlags edges HIGHBD_DECL_SUFFIX)
 {
-
-
     // Wiener filtering is applied to a maximum stripe height of 64 + 3 pixels
     // of padding above and below
     ALIGN(uint8_t tmp[70 /*(64 + 3 + 3)*/ * REST_UNIT_STRIDE], 16);
@@ -493,13 +483,14 @@ static inline void wiener_filter_vsx(uint8_t *p, const ptrdiff_t p_stride,
 }
 #endif
 
-
-COLD void bitfn(dav1d_loop_restoration_dsp_init_ppc)(Dav1dLoopRestorationDSPContext *const c) {
+COLD void bitfn(dav1d_loop_restoration_dsp_init_ppc)
+    (Dav1dLoopRestorationDSPContext *const c)
+{
     const unsigned flags = dav1d_get_cpu_flags();
 
     if (!(flags & DAV1D_PPC_CPU_FLAG_VSX)) return;
 
-#if BITDEPTH == 8 && ARCH_PPC64LE
+#if BITDEPTH == 8
     c->wiener = wiener_filter_vsx;
 #endif
 }
